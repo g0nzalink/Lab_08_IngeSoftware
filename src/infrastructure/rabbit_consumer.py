@@ -8,22 +8,15 @@ from src.domain.recompensa import Cena, CalculadoraRecompensas
 
 load_dotenv()
 
-def main():
+class ConsumidorRabbitMQ:
 
-    usuario = os.getenv("RABBIT_USER")
-    password = os.getenv("RABBIT_PASSWORD")
-    host = os.getenv("RABBIT_HOST")
+    def __init__(self):
+        self.usuario = os.getenv("RABBIT_USER")
+        self.password = os.getenv("RABBIT_PASSWORD")
+        self.host = os.getenv("RABBIT_HOST")
+        self.nombre_cola = "cola_recompensas_gonzalo"
 
-    credenciales = pika.PlainCredentials(usuario, password)
-    parametros = pika.ConnectionParameters(host, 5672, "/", credenciales)
-    
-    conexion = pika.BlockingConnection(parametros)
-    canal = conexion.channel()
-    
-    nombre_cola = "cola_recompensas_gonzalo"
-    canal.queue_declare(queue=nombre_cola, durable=True)
-    
-    def callback(ch, method, properties, body):
+    def _procesar_mensaje(self, ch, method, properties, body):
         texto_recibido = body.decode()
         print(f" [*] Mensaje crudo recibido desde RabbitMQ: {texto_recibido}")
         
@@ -43,10 +36,28 @@ def main():
         except Exception as e:
             print(f" [D:] Error al procesar la recompensa: {e}\n")
 
-    canal.basic_consume(queue=nombre_cola, on_message_callback=callback, auto_ack=True)
-    
-    print(f' [:D] Sistema de Recompensas esperando en la cola "{nombre_cola}". Presiona CTRL+C para salir.')
-    canal.start_consuming()
+    def iniciar_consumo(self):
+        credenciales = pika.PlainCredentials(self.usuario, self.password)
+        parametros = pika.ConnectionParameters(self.host, 5672, "/", credenciales)
+        
+        try:
+            conexion = pika.BlockingConnection(parametros)
+            canal = conexion.channel()
+            
+            canal.queue_declare(queue=self.nombre_cola, durable=True)
+            
+            canal.basic_consume(
+                queue=self.nombre_cola, 
+                on_message_callback=self._procesar_mensaje, 
+                auto_ack=True
+            )
+            
+            print(f' [:D] Sistema de Recompensas esperando en la cola "{self.nombre_cola}". Presiona CTRL+C para salir.')
+            canal.start_consuming()
+            
+        except Exception as e:
+            print(f" [!] Error de conexión en el consumidor: {e}")
 
 if __name__ == "__main__":
-    main()
+    consumidor = ConsumidorRabbitMQ()
+    consumidor.iniciar_consumo()
