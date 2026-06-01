@@ -1,9 +1,12 @@
 import pika
 import json
+import os
 from datetime import datetime
 from dotenv import load_dotenv
 
 from src.domain.recompensa import Cena, CalculadoraRecompensas
+
+load_dotenv()
 
 def main():
 
